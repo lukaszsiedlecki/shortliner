@@ -1,0 +1,15 @@
+services:
+  shortliner:
+    image: eclipse-temurin:23-jdk
+    container_name: shortliner
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data  # Mount SQLite data directory
+      - ./build:/app/build  # Mount build directory for generated files
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:sqlite:/app/data/database.sqlite
+      SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.SQLiteDialect
