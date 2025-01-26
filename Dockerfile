@@ -1,22 +1,30 @@
-# Use the official eclipse-temurin:23-jdk image
-FROM eclipse-temurin:23-jdk
+# Build stage
+FROM eclipse-temurin:23-jdk AS build
 
 # Set the working directory inside the container
 WORKDIR /app
 
 # Copy Gradle configuration and source files
-COPY build.gradle settings.gradle gradlew ./
-COPY gradle gradle
+COPY build.gradle settings.gradle ./
 COPY src src
 
-# Grant write permissions to the /app directory
-RUN chmod -R 777 /app
+# Install Gradle
+RUN apt-get update && apt-get install -y wget unzip \
+    && wget https://services.gradle.org/distributions/gradle-8.12.1-bin.zip \
+    && unzip gradle-7.5-bin.zip -d /opt \
+    && ln -s /opt/gradle-7.5/bin/gradle /usr/bin/gradle
 
 # Download dependencies and build the application
-RUN ./gradlew clean build --no-daemon
+RUN gradle clean build --no-daemon
 
-# Exclude the -plain.jar and copy the main .jar file
-RUN cp $(find build/libs -type f -name '*-SNAPSHOT.jar' ! -name '*-plain.jar') /app/app.jar
+# Package stage
+FROM eclipse-temurin:23-jdk
+
+# Set the working directory inside the container
+WORKDIR /app
+
+# Copy the built .jar file from the build stage
+COPY --from=build /app/build/libs/*-SNAPSHOT.jar /app/app.jar
 
 # Define the entry point for the application
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]
