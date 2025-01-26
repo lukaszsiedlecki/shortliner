@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Skracacz URL</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+<div class="container mt-5">
+    <h1 class="text-center">Skracacz URL</h1>
+    <ul class="nav nav-tabs" id="myTab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" data-bs-target="#shorten" data-bs-toggle="tab" id="shorten-tab"
+                    role="tab" type="button">Skróć URL
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" data-bs-target="#retrieve" data-bs-toggle="tab" id="retrieve-tab" role="tab"
+                    type="button">Odzyskaj URL
+            </button>
+        </li>
+    </ul>
+    <div class="tab-content mt-4">
+        <!-- Zakładka do skracania URL -->
+        <div class="tab-pane fade show active" id="shorten" role="tabpanel">
+            <form id="shortenForm">
+                <div class="mb-3">
+                    <label class="form-label" for="urlInput">Długi URL</label>
+                    <input class="form-control" id="urlInput" placeholder="Wpisz URL" type="text">
+                </div>
+                <button class="btn btn-primary" onclick="shortenUrl()" type="button">Generuj</button>
+            </form>
+            <div class="mt-3" id="shortenResult"></div>
+        </div>
+        <!-- Zakładka do odzyskiwania URL -->
+        <div class="tab-pane fade" id="retrieve" role="tabpanel">
+            <form id="retrieveForm">
+                <div class="mb-3">
+                    <label class="form-label" for="shortCodeInput">Kod skrótu</label>
+                    <input class="form-control" id="shortCodeInput" placeholder="Wpisz kod skrótu" type="text">
+                </div>
+                <button class="btn btn-secondary" onclick="retrieveUrl()" type="button">Odzyskaj</button>
+            </form>
+            <div class="mt-3" id="retrieveResult"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    async function shortenUrl() {
+        const urlInput = document.getElementById('urlInput').value;
+        const response = await fetch('/shorten', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: urlInput })
+        });
+
+        const resultDiv = document.getElementById('shortenResult');
+        if (response.ok) {
+            const data = await response.json();
+            resultDiv.innerHTML = `<div class="alert alert-success">Skrócony URL: <a href="/shorten/${data.shortCode}" target="_blank">${window.location.origin}/shorten/${data.shortCode}</a></div>`;
+        } else {
+            resultDiv.innerHTML = `<div class="alert alert-danger">Wystąpił błąd podczas skracania URL.</div>`;
+        }
+    }
+
+    async function retrieveUrl() {
+        const shortCodeInput = document.getElementById('shortCodeInput').value;
+        const response = await fetch(`/shorten/${shortCodeInput}`);
+
+        const resultDiv = document.getElementById('retrieveResult');
+        if (response.ok) {
+            const data = await response.json();
+            resultDiv.innerHTML = `<div class="alert alert-success">Oryginalny URL: <a href="${data.url}" target="_blank">${data.url}</a></div>`;
+        } else {
+            resultDiv.innerHTML = `<div class="alert alert-danger">Nie znaleziono URL dla podanego kodu skrótu.</div>`;
+        }
+    }
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
