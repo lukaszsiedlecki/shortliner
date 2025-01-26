@@ -11,8 +11,8 @@ COPY src src
 # Install Gradle
 RUN apt-get update && apt-get install -y wget unzip \
     && wget https://services.gradle.org/distributions/gradle-8.12.1-bin.zip \
-    && unzip gradle-7.5-bin.zip -d /opt \
-    && ln -s /opt/gradle-7.5/bin/gradle /usr/bin/gradle
+    && unzip gradle-8.12.1-bin.zip -d /opt \
+    && ln -s /opt/gradle-8.12.1/bin/gradle /usr/bin/gradle
 
 # Download dependencies and build the application
 RUN gradle clean build --no-daemon
