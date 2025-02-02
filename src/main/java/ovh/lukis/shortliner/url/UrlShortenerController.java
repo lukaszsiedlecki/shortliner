@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.view.RedirectView;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -25,17 +26,26 @@ class UrlShortenerController {
     }
 
     @GetMapping("/{shortCode}")
-    public ResponseEntity<ShortenResponse> getOriginalUrl(@PathVariable(name = "shortCode") String shortCode) {
+    public RedirectView getOriginalUrl(@PathVariable(name = "shortCode") String shortCode) {
         logger.info("Received GET request for short code: {}", shortCode);
         Optional<UrlEntity> urlOptional = urlShortenerService.getOriginalUrl(shortCode);
+
         if (urlOptional.isPresent()) {
-            logger.info("Short code found: {} -> {}", shortCode, urlOptional.get().getUrl());
-            return ResponseEntity.ok(new ShortenResponse(urlOptional.get()));
+            String originalUrl = urlOptional.get().getUrl();
+
+            // Ensure URL is absolute (if missing, prepend "http://")
+            if (!originalUrl.startsWith("http://") && !originalUrl.startsWith("https://")) {
+                originalUrl = "http://" + originalUrl; // Default to HTTP
+            }
+
+            logger.info("Short code found: {} -> {}", shortCode, originalUrl);
+            return new RedirectView(originalUrl);
         } else {
             logger.warn("Short code not found: {}", shortCode);
-            return ResponseEntity.notFound().build();
+            return new RedirectView("/error");
         }
     }
+
 
     // DTO class for request
     static class ShortenRequest {
