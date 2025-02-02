@@ -32,18 +32,20 @@
 <script>
     async function shortenUrl() {
         const urlInput = document.getElementById('urlInput').value;
+        const resultDiv = document.getElementById('shortenResult');
+
         const response = await fetch('/shorten', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url: urlInput })
         });
 
-        const resultDiv = document.getElementById('shortenResult');
+        const data = await response.json();
+
         if (response.ok) {
-            const data = await response.json();
             resultDiv.innerHTML = `<div class="alert alert-success">Skrócony URL: <a href="/shorten/${data.shortCode}" target="_blank">${window.location.origin}/shorten/${data.shortCode}</a></div>`;
         } else {
-            resultDiv.innerHTML = `<div class="alert alert-danger">Wystąpił błąd podczas skracania URL.</div>`;
+            resultDiv.innerHTML = `<div class="alert alert-danger">${data.error || "Nieprawidłowy adres URL!"}</div>`;
         }
     }
 </script>

@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.view.RedirectView;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.Optional;
 
 @RestController
@@ -18,11 +19,16 @@ class UrlShortenerController {
     private UrlShortenerService urlShortenerService;
 
     @PostMapping
-    public ResponseEntity<ShortenResponse> shortenUrl(@RequestBody ShortenRequest request) {
+    public ResponseEntity<?> shortenUrl(@RequestBody ShortenRequest request) {
         logger.info("Received POST request to shorten URL: {}", request.url);
-        UrlEntity shortenedUrl = urlShortenerService.shortenUrl(request.url);
-        logger.info("Responding with shortened URL: {}", shortenedUrl.getShortCode());
-        return ResponseEntity.ok(new ShortenResponse(shortenedUrl));
+        try {
+            UrlEntity shortenedUrl = urlShortenerService.shortenUrl(request.url);
+            logger.info("Responding with shortened URL: {}", shortenedUrl.getShortCode());
+            return ResponseEntity.ok(new ShortenResponse(shortenedUrl));
+        } catch (IllegalArgumentException e) {  // Catch invalid URL exception
+            logger.warn("Invalid URL provided: {}", request.url);
+            return ResponseEntity.badRequest().body(Map.of("error", "Incorrect URL"));
+        }
     }
 
     @GetMapping("/{shortCode}")
