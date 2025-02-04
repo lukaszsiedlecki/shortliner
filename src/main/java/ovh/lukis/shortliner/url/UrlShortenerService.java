@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.net.MalformedURLException;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -21,17 +22,14 @@ class UrlShortenerService {
     public UrlEntity shortenUrl(String originalUrl) {
         logger.info("Received request to shorten URL: {}", originalUrl);
 
-        // Ensure the URL has a proper scheme (http or https)
-        String formattedUrl = formatUrl(originalUrl);
-
         // Validate the formatted URL
-        if (!isValidUrl(formattedUrl)) {
+        if (!isValidURL(originalUrl)) {
             logger.warn("Invalid URL provided: {}", originalUrl);
             throw new IllegalArgumentException("Nieprawidłowy adres URL");
         }
 
         // Fetch all records with the same URL (to avoid NonUniqueResultException)
-        List<UrlEntity> existingUrls = urlRepository.findByUrl(formattedUrl);
+        List<UrlEntity> existingUrls = urlRepository.findByUrl(originalUrl);
         if (!existingUrls.isEmpty()) {
             UrlEntity existingUrl = existingUrls.getFirst(); // Get the first available URL
             logger.info("URL already exists. Returning existing short code: {}", existingUrl.getShortCode());
@@ -43,35 +41,25 @@ class UrlShortenerService {
 
         // Create new URL entity
         UrlEntity url = new UrlEntity();
-        url.setUrl(formattedUrl);
+        url.setUrl(originalUrl);
         url.setShortCode(shortCode);
         url.setCreatedAt(LocalDateTime.now());
         url.setUpdatedAt(LocalDateTime.now());
 
         // Save to database
         UrlEntity savedUrl = urlRepository.save(url);
-        logger.info("New URL shortened successfully: {} -> {}", formattedUrl, shortCode);
+        logger.info("New URL shortened successfully: {} -> {}", originalUrl, shortCode);
         return savedUrl;
-    }
-
-    /**
-     * Ensures the URL starts with a proper scheme (http or https).
-     */
-    private String formatUrl(String url) {
-        if (!url.matches("^(https?://).*")) {  // If URL doesn't start with http:// or https://
-            return "https://" + url;  // Default to https
-        }
-        return url;
     }
 
     /**
      * Validates if a given string is a proper URL.
      */
-    private boolean isValidUrl(String urlString) {
+    boolean isValidURL(String url) {
         try {
-            new URL(urlString);  // This will throw an exception if the URL is invalid
+            new URL(url).toURI();
             return true;
-        } catch (MalformedURLException e) {
+        } catch (MalformedURLException | URISyntaxException e) {
             return false;
         }
     }
