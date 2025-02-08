@@ -15,7 +15,7 @@ import java.util.UUID;
 
 @Service
 @AllArgsConstructor
-class UrlShortenerService {
+public class UrlShortenerService {
     private static final Logger logger = LoggerFactory.getLogger(UrlShortenerService.class);
     private UrlRepository urlRepository;
 
