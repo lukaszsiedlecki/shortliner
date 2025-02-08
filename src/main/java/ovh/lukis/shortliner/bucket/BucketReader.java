@@ -6,7 +6,6 @@ import com.google.cloud.storage.StorageOptions;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import ovh.lukis.shortliner.url.UrlShortenerService;
 
@@ -19,7 +18,6 @@ public class BucketReader {
     private static final Logger logger = LoggerFactory.getLogger(BucketReader.class);
     private UrlShortenerService urlShortenerService;
 
-    @Scheduled(fixedRate = 10000)
     public List<String> readBucket() {
         List<String> shortLinedUrls = new ArrayList<>();
         Storage storage = StorageOptions.getDefaultInstance().getService();
