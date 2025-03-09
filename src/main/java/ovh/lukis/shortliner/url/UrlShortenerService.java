@@ -3,7 +3,11 @@ package ovh.lukis.shortliner.url;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
@@ -19,6 +23,8 @@ public class UrlShortenerService {
     private static final Logger logger = LoggerFactory.getLogger(UrlShortenerService.class);
     private UrlRepository urlRepository;
 
+    @Transactional
+    @Retryable(value = DataIntegrityViolationException.class, maxAttempts = 3)
     public UrlEntity shortenUrl(String originalUrl) {
         logger.info("Received request to shorten URL: {}", originalUrl);
 
@@ -31,7 +37,7 @@ public class UrlShortenerService {
         // Fetch all records with the same URL (to avoid NonUniqueResultException)
         List<UrlEntity> existingUrls = urlRepository.findByUrl(originalUrl);
         if (!existingUrls.isEmpty()) {
-            UrlEntity existingUrl = existingUrls.getFirst(); // Get the first available URL
+            UrlEntity existingUrl = existingUrls.getFirst();
             logger.info("URL already exists. Returning existing short code: {}", existingUrl.getShortCode());
             return existingUrl;
         }
@@ -47,9 +53,14 @@ public class UrlShortenerService {
         url.setUpdatedAt(LocalDateTime.now());
 
         // Save to database
-        UrlEntity savedUrl = urlRepository.save(url);
-        logger.info("New URL shortened successfully: {} -> {}", originalUrl, shortCode);
-        return savedUrl;
+        try {
+            UrlEntity savedUrl = urlRepository.save(url);
+            logger.info("New URL shortened successfully: {} -> {}", originalUrl, shortCode);
+            return savedUrl;
+        } catch (DataIntegrityViolationException e) {
+            logger.warn("Concurrent save attempt detected for URL: {}", originalUrl);
+            throw e;
+        }
     }
 
     /**
@@ -64,7 +75,7 @@ public class UrlShortenerService {
         }
     }
 
-
+    @Cacheable(value = "urls", key = "#shortCode", unless = "#result == null")
     public Optional<UrlEntity> getOriginalUrl(String shortCode) {
         logger.info("Fetching original URL for short code: {}", shortCode);
         return urlRepository.findByShortCode(shortCode);
