@@ -4,18 +4,19 @@ FROM eclipse-temurin:23-jdk AS build
 # Set the working directory inside the container
 WORKDIR /app
 
+# Gradle
+COPY gradlew .
+COPY gradle gradle
+RUN chmod +x gradlew
+
 # Copy Gradle configuration and source files
 COPY build.gradle settings.gradle ./
 COPY src src
 
-# Install Gradle
-RUN apt-get update && apt-get install -y wget unzip \
-    && wget https://services.gradle.org/distributions/gradle-8.12.1-bin.zip \
-    && unzip gradle-8.12.1-bin.zip -d /opt \
-    && ln -s /opt/gradle-8.12.1/bin/gradle /usr/bin/gradle
+ENV JAVA_HOME=/opt/java/openjdk
+ENV PATH="$JAVA_HOME/bin:$PATH"
 
-# Download dependencies and build the application
-RUN gradle clean build --no-daemon
+RUN ./gradlew clean build --no-daemon
 
 # Package stage
 FROM eclipse-temurin:23-jdk

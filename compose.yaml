@@ -1,13 +1,9 @@
 services:
   shortliner:
-    image: eclipse-temurin:23-jdk
-    container_name: shortliner
     build:
       context: .
       dockerfile: Dockerfile
     ports:
       - "8080:8080"
-    volumes:
-      - ./build:/app/build  # Mount build directory for generated files
     env_file:
       - .env
