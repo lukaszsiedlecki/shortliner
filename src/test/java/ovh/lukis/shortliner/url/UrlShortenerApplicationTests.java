@@ -5,8 +5,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import ovh.lukis.shortliner.kafka.ClickEvent;
+import ovh.lukis.shortliner.kafka.ClickEventProducer;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -18,6 +23,20 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.ANY)
 class UrlShortenerApplicationTests {
+
+    @TestConfiguration
+    static class TestConfig {
+        @Bean
+        @Primary
+        public ClickEventProducer clickEventProducer() {
+            return new ClickEventProducer(null) {
+                @Override
+                public void sendClickEvent(ClickEvent event) {
+                    // No-op for tests
+                }
+            };
+        }
+    }
 
     @Autowired
     private MockMvc mockMvc;

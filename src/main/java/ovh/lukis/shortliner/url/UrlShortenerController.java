@@ -1,5 +1,6 @@
 package ovh.lukis.shortliner.url;
 
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -8,6 +9,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.view.RedirectView;
+import ovh.lukis.shortliner.kafka.ClickEvent;
+import ovh.lukis.shortliner.kafka.ClickEventProducer;
 
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -18,7 +21,8 @@ import java.util.Optional;
 @AllArgsConstructor
 class UrlShortenerController {
     private static final Logger logger = LoggerFactory.getLogger(UrlShortenerController.class);
-    private UrlShortenerService urlShortenerService;
+    private final UrlShortenerService urlShortenerService;
+    private final ClickEventProducer clickEventProducer;
 
     @PostMapping
     public ResponseEntity<?> shortenUrl(@RequestBody ShortenRequest request,
@@ -36,7 +40,9 @@ class UrlShortenerController {
     }
 
     @GetMapping("/{shortCode}")
-    public RedirectView getOriginalUrl(@PathVariable(name = "shortCode") String shortCode) {
+    public RedirectView getOriginalUrl(@PathVariable(name = "shortCode") String shortCode,
+                                       HttpServletRequest request,
+                                       @AuthenticationPrincipal Jwt jwt) {
         logger.info("Received GET request for short code: {}", shortCode);
         Optional<UrlEntity> urlOptional = urlShortenerService.getOriginalUrl(shortCode);
 
@@ -48,12 +54,30 @@ class UrlShortenerController {
                 originalUrl = "http://" + originalUrl; // Default to HTTP
             }
 
+            // Send click event asynchronously
+            ClickEvent event = ClickEvent.create(
+                    shortCode,
+                    jwt != null ? jwt.getSubject() : null,
+                    getClientIp(request),
+                    request.getHeader("User-Agent"),
+                    request.getHeader("Referer")
+            );
+            clickEventProducer.sendClickEvent(event);
+
             logger.info("Short code found: {} -> {}", shortCode, originalUrl);
             return new RedirectView(originalUrl);
         } else {
             logger.warn("Short code not found: {}", shortCode);
             return new RedirectView("/error");
         }
+    }
+
+    private String getClientIp(HttpServletRequest request) {
+        String xForwardedFor = request.getHeader("X-Forwarded-For");
+        if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
+            return xForwardedFor.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 
 

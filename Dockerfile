@@ -1,5 +1,5 @@
 # Build stage
-FROM eclipse-temurin:23-jdk AS build
+FROM eclipse-temurin:25-jdk AS build
 
 # Set the working directory inside the container
 WORKDIR /app
@@ -19,7 +19,7 @@ ENV PATH="$JAVA_HOME/bin:$PATH"
 RUN ./gradlew clean build --no-daemon
 
 # Package stage
-FROM eclipse-temurin:23-jdk
+FROM eclipse-temurin:25-jdk
 
 # Set the working directory inside the container
 WORKDIR /app
