@@ -4,6 +4,8 @@ import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.view.RedirectView;
 
@@ -19,13 +21,15 @@ class UrlShortenerController {
     private UrlShortenerService urlShortenerService;
 
     @PostMapping
-    public ResponseEntity<?> shortenUrl(@RequestBody ShortenRequest request) {
-        logger.info("Received POST request to shorten URL: {}", request.url);
+    public ResponseEntity<?> shortenUrl(@RequestBody ShortenRequest request,
+                                        @AuthenticationPrincipal Jwt jwt) {
+        String userId = jwt.getSubject();
+        logger.info("User [{}] requested to shorten URL: {}", userId, request.url);
         try {
             UrlEntity shortenedUrl = urlShortenerService.shortenUrl(request.url);
             logger.info("Responding with shortened URL: {}", shortenedUrl.getShortCode());
             return ResponseEntity.ok(new ShortenResponse(shortenedUrl));
-        } catch (IllegalArgumentException e) {  // Catch invalid URL exception
+        } catch (IllegalArgumentException e) {
             logger.warn("Invalid URL provided: {}", request.url);
             return ResponseEntity.badRequest().body(Map.of("error", "Incorrect URL"));
         }
