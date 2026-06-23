@@ -95,7 +95,7 @@ curl -X POST http://localhost:8080/shorten \
 gcloud run deploy shortliner \
   --image gcr.io/your-project/shortliner \
   --platform managed \
-  --region europe-central2 \
+  --region your-preferred-region \
   --allow-unauthenticated
 ```
 
