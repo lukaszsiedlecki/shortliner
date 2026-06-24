@@ -51,7 +51,6 @@ Key classes:
 - `UrlShortenerService` — core logic: URL validation, dedup check, `@Cacheable("urls")` lookup
 - `UrlShortenerController` — REST layer; extracts JWT subject for user tracking
 - `ClickEventProducer` / `ClickEvent` — fire-and-forget Kafka producer for analytics
-- `BucketReader` — bulk-import URLs from a GCS bucket named `shortliner`
 - `SecurityConfig` — stateless OAuth2 JWT resource server; only POST /shorten and management endpoints require auth
 - `CacheConfig` — Caffeine cache named `urls`, max 10 000 entries, 1-hour TTL
 
