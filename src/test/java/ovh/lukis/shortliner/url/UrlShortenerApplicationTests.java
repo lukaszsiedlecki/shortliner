@@ -13,7 +13,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import ovh.lukis.shortliner.kafka.ClickEvent;
 import ovh.lukis.shortliner.kafka.ClickEventProducer;
 
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -32,7 +31,6 @@ class UrlShortenerApplicationTests {
             return new ClickEventProducer(null) {
                 @Override
                 public void sendClickEvent(ClickEvent event) {
-                    // No-op for tests
                 }
             };
         }
@@ -47,7 +45,6 @@ class UrlShortenerApplicationTests {
         String requestBody = String.format("{\"url\": \"%s\"}", originalUrl);
 
         mockMvc.perform(post("/shorten")
-                        .with(jwt().jwt(j -> j.subject("test-user")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
                 .andExpect(status().isOk())
@@ -58,18 +55,7 @@ class UrlShortenerApplicationTests {
     }
 
     @Test
-    void testShortenUrlWithoutAuth() throws Exception {
-        String requestBody = "{\"url\": \"https://www.example.com\"}";
-
-        mockMvc.perform(post("/shorten")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
-                .andExpect(status().isUnauthorized());
-    }
-
-    @Test
     void testRedirectIsPublic() throws Exception {
-        // Redirect endpoint should be accessible without auth (returns 302 or error redirect)
         mockMvc.perform(get("/shorten/abc123"))
                 .andExpect(status().is3xxRedirection());
     }

@@ -5,8 +5,6 @@ import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.view.RedirectView;
 import ovh.lukis.shortliner.kafka.ClickEvent;
@@ -25,10 +23,8 @@ class UrlShortenerController {
     private final ClickEventProducer clickEventProducer;
 
     @PostMapping
-    public ResponseEntity<?> shortenUrl(@RequestBody ShortenRequest request,
-                                        @AuthenticationPrincipal Jwt jwt) {
-        String userId = jwt.getSubject();
-        logger.info("User [{}] requested to shorten URL: {}", userId, request.url);
+    public ResponseEntity<?> shortenUrl(@RequestBody ShortenRequest request) {
+        logger.info("Received request to shorten URL: {}", request.url);
         try {
             UrlEntity shortenedUrl = urlShortenerService.shortenUrl(request.url);
             logger.info("Responding with shortened URL: {}", shortenedUrl.getShortCode());
@@ -41,23 +37,20 @@ class UrlShortenerController {
 
     @GetMapping("/{shortCode}")
     public RedirectView getOriginalUrl(@PathVariable(name = "shortCode") String shortCode,
-                                       HttpServletRequest request,
-                                       @AuthenticationPrincipal Jwt jwt) {
+                                       HttpServletRequest request) {
         logger.info("Received GET request for short code: {}", shortCode);
         Optional<UrlEntity> urlOptional = urlShortenerService.getOriginalUrl(shortCode);
 
         if (urlOptional.isPresent()) {
             String originalUrl = urlOptional.get().getUrl();
 
-            // Ensure URL is absolute (if missing, prepend "http://")
             if (!originalUrl.startsWith("http://") && !originalUrl.startsWith("https://")) {
-                originalUrl = "http://" + originalUrl; // Default to HTTP
+                originalUrl = "http://" + originalUrl;
             }
 
-            // Send click event asynchronously
             ClickEvent event = ClickEvent.create(
                     shortCode,
-                    jwt != null ? jwt.getSubject() : null,
+                    null,
                     getClientIp(request),
                     request.getHeader("User-Agent"),
                     request.getHeader("Referer")
@@ -80,13 +73,10 @@ class UrlShortenerController {
         return request.getRemoteAddr();
     }
 
-
-    // DTO class for request
     static class ShortenRequest {
         public String url;
     }
 
-    // DTO class for response
     static class ShortenResponse {
         public Long id;
         public String url;

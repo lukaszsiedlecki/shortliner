@@ -9,7 +9,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 
-@Profile("!dev")
+@Profile("prd")
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
@@ -22,19 +22,13 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // Public: home page, static resources, error pages
                         .requestMatchers("/", "/error", "/error/**").permitAll()
-                        // Public: redirect endpoint (GET /shorten/{shortCode})
                         .requestMatchers(HttpMethod.GET, "/shorten/{shortCode}").permitAll()
-                        // Protected: create/delete/list endpoints
                         .requestMatchers(HttpMethod.POST, "/shorten").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/shorten/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/shorten").authenticated()
-                        // Everything else requires authentication
                         .anyRequest().authenticated()
-                )
-                .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> {
-                }));
+                );
 
         return http.build();
     }
