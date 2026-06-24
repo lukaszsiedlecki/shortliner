@@ -3,9 +3,8 @@
 ![Java](https://img.shields.io/badge/Java-25-orange)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-blue)
-![Cloud Run](https://img.shields.io/badge/Cloud%20Run-GCP-blue)
 
-ShortLiner is a modern URL shortening application optimized for high performance and reliability. The application is deployed on Google Cloud Run, providing automatic scaling and high availability.
+ShortLiner is a modern URL shortening application optimized for high performance and reliability.
 
 ## Features
 
@@ -27,8 +26,6 @@ ShortLiner is a modern URL shortening application optimized for high performance
 - Spring Kafka
 - PostgreSQL
 - Caffeine Cache
-- Google Cloud Run
-- Google Cloud SQL
 - Thymeleaf
 - Bootstrap 5
 
@@ -38,7 +35,6 @@ ShortLiner is a modern URL shortening application optimized for high performance
 - Gradle 9.1+
 - PostgreSQL
 - Kafka (for click event tracking)
-- (Optional) Google Cloud Platform account for deployment
 
 ## Local Development
 
@@ -48,7 +44,7 @@ git clone https://github.com/yourusername/shortliner.git
 cd shortliner
 ```
 
-2. Configure environment variables in `.env` file:
+2. Configure environment variables in `.env.local` file:
 ```properties
 DB_HOST=localhost
 DB_NAME=shortliner
@@ -81,22 +77,6 @@ curl -X POST http://localhost:8080/shorten \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <your-jwt-token>" \
   -d '{"url": "https://example.com/very/long/url"}'
-```
-
-## Google Cloud Run Deployment
-
-1. Build Docker image:
-```bash
-./gradlew bootBuildImage
-```
-
-2. Deploy to Cloud Run:
-```bash
-gcloud run deploy shortliner \
-  --image gcr.io/your-project/shortliner \
-  --platform managed \
-  --region your-preferred-region \
-  --allow-unauthenticated
 ```
 
 ## License

@@ -38,11 +38,11 @@ JWT_JWK_SET_URI=http://localhost:8080/.well-known/jwks.json
 KAFKA_BOOTSTRAP_SERVERS=localhost:9092
 ```
 
-Two Spring profiles exist: `dev` (`application-dev.properties`) and `prd` (`application-prd.properties`). Docker Compose integration is disabled in the dev profile (`spring.docker.compose.enabled=false`).
+One Spring profile exists: `dev` (`application-dev.properties`). Docker Compose integration is disabled via `application.properties`.
 
 ## Architecture
 
-The application is a URL shortener deployed on Google Cloud Run backed by Cloud SQL (PostgreSQL). The main flow:
+The application is a URL shortener backed by PostgreSQL. The main flow:
 
 1. **POST /shorten** (JWT required) — validates the URL, checks for duplicates in PostgreSQL, generates a 6-character UUID-prefix short code, saves via JPA, returns the entity. `@Retryable` handles concurrent duplicate-key violations.
 2. **GET /shorten/{shortCode}** (public) — looks up the short code (Caffeine cache, then DB), fires an async Kafka click event to topic `shortliner.clicks`, and issues a 302 redirect.
