@@ -29,16 +29,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 The app requires these variables (put them in a `.env` file):
 
 ```
+SERVER_PORT=8080
 DB_HOST=localhost
+DB_PORT=5432
 DB_NAME=shortliner
-DB_USER=your_user
+DB_USERNAME=your_user
 DB_PASSWORD=your_password
 JWT_ISSUER_URI=http://localhost:8080
 JWT_JWK_SET_URI=http://localhost:8080/.well-known/jwks.json
 KAFKA_BOOTSTRAP_SERVERS=localhost:9092
 ```
 
-One Spring profile exists: `dev` (`application-dev.properties`). Docker Compose integration is disabled via `application.properties`.
+One Spring profile exists: `dev` (`application-dev.properties`), and it's always active — `application.properties` hardcodes `spring.profiles.active=dev`. Docker Compose integration is disabled via `application.properties`.
 
 ## Architecture
 

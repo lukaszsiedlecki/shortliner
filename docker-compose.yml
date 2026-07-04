@@ -1,11 +1,9 @@
 services:
   shortliner:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: shortliner
+    build: .
+    container_name: shortliner-app
     ports:
-      - "8080:8080"
+      - "${SERVER_PORT}:${SERVER_PORT}"
     env_file:
       - .env.local
     networks:

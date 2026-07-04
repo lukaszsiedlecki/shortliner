@@ -46,9 +46,11 @@ cd shortliner
 
 2. Configure environment variables in `.env.local` file:
 ```properties
+SERVER_PORT=8080
 DB_HOST=localhost
+DB_PORT=5432
 DB_NAME=shortliner
-DB_USER=your_user
+DB_USERNAME=your_user
 DB_PASSWORD=your_password
 JWT_ISSUER_URI=http://localhost:8080
 JWT_JWK_SET_URI=http://localhost:8080/.well-known/jwks.json
