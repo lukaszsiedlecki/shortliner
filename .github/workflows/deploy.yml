@@ -50,3 +50,16 @@ jobs:
           event-type: deploy-image
           client-payload: |
             {"service": "shortliner", "tag": "${{ needs.build-and-push.outputs.tag }}"}
+
+  notify-cloud-infra:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch deploy-image event to cloud-infra
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.CLOUD_INFRA_DISPATCH_TOKEN }}
+          repository: lukaszsiedlecki/cloud-infra
+          event-type: deploy-image
+          client-payload: |
+            {"service": "shortliner", "tag": "${{ needs.build-and-push.outputs.tag }}"}
