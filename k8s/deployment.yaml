@@ -16,6 +16,10 @@ spec:
     metadata:
       labels:
         app: shortliner
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/actuator/prometheus"
+        prometheus.io/port: "8080"
     spec:
       serviceAccountName: shortliner
       # Spot Pods for cost savings — safe here since this is stateless and
@@ -69,6 +73,10 @@ spec:
                   key: SHORTLINER_DB_PASSWORD
             - name: KAFKA_BOOTSTRAP_SERVERS
               value: "my-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+            - name: LOGGING_STRUCTURED_FORMAT_CONSOLE
+              value: "logstash"
+            # Set OTEL_TRACING_EXPORT_ENABLED=true and point OTEL_EXPORTER_OTLP_ENDPOINT
+            # at a collector (e.g. Tempo/Jaeger OTLP HTTP receiver) once one is deployed.
           resources:
             requests:
               cpu: 200m

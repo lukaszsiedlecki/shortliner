@@ -1,5 +1,7 @@
 package ovh.lukis.shortliner.url;
 
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,6 +24,7 @@ import java.util.UUID;
 public class UrlShortenerService {
     private static final Logger logger = LoggerFactory.getLogger(UrlShortenerService.class);
     private UrlRepository urlRepository;
+    private MeterRegistry meterRegistry;
 
     @Transactional
     @Retryable(value = DataIntegrityViolationException.class, maxAttempts = 3)
@@ -31,6 +34,7 @@ public class UrlShortenerService {
         // Validate the formatted URL
         if (!isValidURL(originalUrl)) {
             logger.warn("Invalid URL provided: {}", originalUrl);
+            countShortenOutcome("invalid");
             throw new IllegalArgumentException("Nieprawidłowy adres URL");
         }
 
@@ -39,6 +43,7 @@ public class UrlShortenerService {
         if (!existingUrls.isEmpty()) {
             UrlEntity existingUrl = existingUrls.getFirst();
             logger.info("URL already exists. Returning existing short code: {}", existingUrl.getShortCode());
+            countShortenOutcome("duplicate");
             return existingUrl;
         }
 
@@ -56,11 +61,20 @@ public class UrlShortenerService {
         try {
             UrlEntity savedUrl = urlRepository.save(url);
             logger.info("New URL shortened successfully: {} -> {}", originalUrl, shortCode);
+            countShortenOutcome("created");
             return savedUrl;
         } catch (DataIntegrityViolationException e) {
             logger.warn("Concurrent save attempt detected for URL: {}", originalUrl);
             throw e;
         }
+    }
+
+    private void countShortenOutcome(String outcome) {
+        Counter.builder("shortliner.url.shortened")
+                .description("Outcomes of URL shortening requests")
+                .tag("outcome", outcome)
+                .register(meterRegistry)
+                .increment();
     }
 
     /**

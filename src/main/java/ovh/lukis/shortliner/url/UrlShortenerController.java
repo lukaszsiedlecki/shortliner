@@ -1,5 +1,7 @@
 package ovh.lukis.shortliner.url;
 
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
@@ -21,6 +23,7 @@ class UrlShortenerController {
     private static final Logger logger = LoggerFactory.getLogger(UrlShortenerController.class);
     private final UrlShortenerService urlShortenerService;
     private final ClickEventProducer clickEventProducer;
+    private final MeterRegistry meterRegistry;
 
     @PostMapping
     public ResponseEntity<?> shortenUrl(@RequestBody ShortenRequest request) {
@@ -58,11 +61,21 @@ class UrlShortenerController {
             clickEventProducer.sendClickEvent(event);
 
             logger.info("Short code found: {} -> {}", shortCode, originalUrl);
+            countRedirectOutcome("found");
             return new RedirectView(originalUrl);
         } else {
             logger.warn("Short code not found: {}", shortCode);
+            countRedirectOutcome("not_found");
             return new RedirectView("/error");
         }
+    }
+
+    private void countRedirectOutcome(String outcome) {
+        Counter.builder("shortliner.url.redirect")
+                .description("Outcomes of short code redirect lookups")
+                .tag("outcome", outcome)
+                .register(meterRegistry)
+                .increment();
     }
 
     private String getClientIp(HttpServletRequest request) {
