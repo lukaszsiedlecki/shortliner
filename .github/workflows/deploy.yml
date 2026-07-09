@@ -51,15 +51,60 @@ jobs:
           client-payload: |
             {"service": "shortliner", "tag": "${{ needs.build-and-push.outputs.tag }}"}
 
-  notify-cloud-infra:
+  deploy:
+    # Deploys directly to shortliner-prod (GCP) via Workload Identity
+    # Federation — replaces the old repository_dispatch to cloud-infra's
+    # promote.yml. Gated by this repo's own "production" environment
+    # (required reviewer), same as before.
     needs: build-and-push
     runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: write
+      id-token: write
     steps:
-      - name: Dispatch deploy-image event to cloud-infra
-        uses: peter-evans/repository-dispatch@v3
+      - uses: actions/checkout@v4
+
+      - name: Install yq
+        run: |
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Patch image tag
+        env:
+          TAG: ${{ needs.build-and-push.outputs.tag }}
+        run: |
+          yq -i ".spec.template.spec.containers[0].image = \"ghcr.io/lukaszsiedlecki/shortliner:${TAG}\"" k8s/deployment.yaml
+
+      - name: Commit and push
+        env:
+          TAG: ${{ needs.build-and-push.outputs.tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add k8s/deployment.yaml
+          if git diff --cached --quiet; then
+            echo "No changes for ${TAG}, nothing to commit"
+          else
+            git commit -m "chore: deploy ${TAG} to shortliner-prod"
+            git push
+          fi
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
         with:
-          token: ${{ secrets.CLOUD_INFRA_DISPATCH_TOKEN }}
-          repository: lukaszsiedlecki/cloud-infra
-          event-type: deploy-image
-          client-payload: |
-            {"service": "shortliner", "tag": "${{ needs.build-and-push.outputs.tag }}"}
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.GH_DEPLOYER_SA_EMAIL }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Get GKE credentials
+        run: |
+          gcloud container clusters get-credentials shortliner-cluster \
+            --zone europe-central2-a --project shortliner-prod
+
+      - name: Apply to cluster
+        run: |
+          kubectl apply -f k8s/
+          kubectl -n shortliner rollout status deployment shortliner --timeout=300s
