@@ -42,7 +42,7 @@ spec:
         - name: shortliner
           # Patched by .github/workflows/deploy.yml on every push to master
           # — never edited by hand.
-          image: ghcr.io/lukaszsiedlecki/shortliner:sha-9de27cc
+          image: ghcr.io/lukaszsiedlecki/shortliner:sha-cd6cc8a
           ports:
             - containerPort: 8080
           securityContext:
@@ -75,8 +75,8 @@ spec:
               value: "my-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
             - name: LOGGING_STRUCTURED_FORMAT_CONSOLE
               value: "logstash"
-            # Set OTEL_TRACING_EXPORT_ENABLED=true and point OTEL_EXPORTER_OTLP_ENDPOINT
-            # at a collector (e.g. Tempo/Jaeger OTLP HTTP receiver) once one is deployed.
+              # Set OTEL_TRACING_EXPORT_ENABLED=true and point OTEL_EXPORTER_OTLP_ENDPOINT
+              # at a collector (e.g. Tempo/Jaeger OTLP HTTP receiver) once one is deployed.
           resources:
             requests:
               cpu: 200m
