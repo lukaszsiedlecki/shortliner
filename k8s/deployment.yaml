@@ -38,7 +38,7 @@ spec:
         - name: shortliner
           # Patched by .github/workflows/deploy.yml on every push to master
           # — never edited by hand.
-          image: ghcr.io/lukaszsiedlecki/shortliner:sha-060eec8
+          image: ghcr.io/lukaszsiedlecki/shortliner:sha-c2196b6
           ports:
             - containerPort: 8080
           securityContext:
