@@ -38,3 +38,6 @@ out/
 .env
 .env.*
 !.env.example
+
+### Personal (not part of this project) ###
+/.notes/
