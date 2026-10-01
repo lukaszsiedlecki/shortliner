@@ -7,12 +7,16 @@ import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.view.RedirectView;
 import ovh.lukis.shortliner.kafka.ClickEvent;
 import ovh.lukis.shortliner.kafka.ClickEventProducer;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -26,16 +30,37 @@ class UrlShortenerController {
     private final MeterRegistry meterRegistry;
 
     @PostMapping
-    public ResponseEntity<?> shortenUrl(@RequestBody ShortenRequest request) {
+    public ResponseEntity<?> shortenUrl(@RequestBody ShortenRequest request,
+                                        @AuthenticationPrincipal Jwt jwt) {
         logger.info("Received request to shorten URL: {}", request.url);
+        // Anonymous callers are allowed; their links have no owner.
+        String ownerId = jwt != null ? jwt.getSubject() : null;
         try {
-            UrlEntity shortenedUrl = urlShortenerService.shortenUrl(request.url);
+            UrlEntity shortenedUrl = urlShortenerService.shortenUrl(request.url, ownerId);
             logger.info("Responding with shortened URL: {}", shortenedUrl.getShortCode());
             return ResponseEntity.ok(new ShortenResponse(shortenedUrl));
         } catch (IllegalArgumentException e) {
             logger.warn("Invalid URL provided: {}", request.url);
             return ResponseEntity.badRequest().body(Map.of("error", "Incorrect URL"));
         }
+    }
+
+    @GetMapping
+    public List<ShortenResponse> listOwnUrls(@AuthenticationPrincipal Jwt jwt) {
+        return urlShortenerService.getUrlsOwnedBy(jwt.getSubject()).stream()
+                .map(ShortenResponse::new)
+                .toList();
+    }
+
+    @DeleteMapping("/{shortCode}")
+    public ResponseEntity<Void> deleteUrl(@PathVariable(name = "shortCode") String shortCode,
+                                          @AuthenticationPrincipal Jwt jwt,
+                                          Authentication authentication) {
+        boolean isAdmin = authentication.getAuthorities().stream()
+                .anyMatch(authority -> "ROLE_admin".equals(authority.getAuthority()));
+        return urlShortenerService.deleteUrl(shortCode, jwt.getSubject(), isAdmin)
+                ? ResponseEntity.noContent().build()
+                : ResponseEntity.notFound().build();
     }
 
     @GetMapping("/{shortCode}")
@@ -45,15 +70,17 @@ class UrlShortenerController {
         Optional<UrlEntity> urlOptional = urlShortenerService.getOriginalUrl(shortCode);
 
         if (urlOptional.isPresent()) {
-            String originalUrl = urlOptional.get().getUrl();
+            UrlEntity url = urlOptional.get();
+            String originalUrl = url.getUrl();
 
             if (!originalUrl.startsWith("http://") && !originalUrl.startsWith("https://")) {
                 originalUrl = "http://" + originalUrl;
             }
 
+            // userId is the link's owner (analytics aggregates per owner), not the visitor.
             ClickEvent event = ClickEvent.create(
                     shortCode,
-                    null,
+                    url.getOwnerId(),
                     getClientIp(request),
                     request.getHeader("User-Agent"),
                     request.getHeader("Referer")

@@ -36,6 +36,8 @@ DB_NAME=shortliner
 DB_USERNAME=your_user
 DB_PASSWORD=your_password
 KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+KEYCLOAK_JWK_SET_URI=http://keycloak.local/realms/shortliner/protocol/openid-connect/certs  # in-cluster: http://keycloak.keycloak.svc.cluster.local/...
+KEYCLOAK_ISSUER_URI=http://keycloak.local/realms/shortliner
 ```
 
 `dev` (`application-dev.properties`) holds the real config and is always active — `application.properties` hardcodes `spring.profiles.active=dev`, and the cluster runs it too. Local-only noise (Spring Security DEBUG, `show-sql`) lives in the `local` profile: run with `SPRING_PROFILES_ACTIVE=dev,local`. Docker Compose integration is disabled via `application.properties`.
@@ -44,20 +46,24 @@ KAFKA_BOOTSTRAP_SERVERS=localhost:9092
 
 The application is a URL shortener backed by PostgreSQL. The main flow:
 
-1. **POST /shorten** — validates the URL, checks for duplicates in PostgreSQL, generates a 6-character UUID-prefix short code, saves via JPA, returns the entity. `@Retryable` handles concurrent duplicate-key violations.
-2. **GET /shorten/{shortCode}** (public) — looks up the short code (Caffeine cache, then DB), fires an async Kafka click event to topic `shortliner.clicks`, and issues a 302 redirect.
+Auth: the browser talks only to `shortliner-gateway` (BFF), which forwards `/api/shortliner/**` here with the prefix stripped and an `Authorization: Bearer <Keycloak JWT>` header when the user is logged in (no header when anonymous). This service is an OAuth2 resource server and does its own authorization; the user ID is always `jwt.getSubject()`. The old `shortliner-auth` service is not used.
+
+1. **POST /shorten** (anonymous allowed) — validates the URL, checks for duplicates in PostgreSQL (per owner), generates a 6-character UUID-prefix short code, saves via JPA with `ownerId = sub` when a JWT is present (else `null`), returns the entity. `@Retryable` handles concurrent duplicate-key violations.
+2. **GET /shorten/{shortCode}** (anonymous) — looks up the short code (Caffeine cache, then DB), fires an async Kafka click event to topic `shortliner.clicks` with `userId` = the link's **owner** (what analytics aggregates by, not the visitor), and issues a 302 redirect.
+3. **GET /shorten** (authenticated) — the caller's own links.
+4. **DELETE /shorten/{shortCode}** (authenticated) — owner or `admin` only; 204, or 404 for missing *and* foreign links (existence isn't revealed). Evicts the `urls` cache entry.
 
 Key classes:
 - `UrlShortenerService` — core logic: URL validation, dedup check, `@Cacheable("urls")` lookup
 - `UrlShortenerController` — REST layer
 - `ClickEventProducer` / `ClickEvent` — fire-and-forget Kafka producer for analytics
-- `DevSecurityConfig` (`@Profile("!prd")`) — permits all requests; this is the config actually in effect, since `spring.profiles.active` is hardcoded to `dev`
-- `SecurityConfig` (`@Profile("prd")`) — stricter authorization rules (only GET /shorten/{shortCode} and health/error are public) but currently dead code — no authentication mechanism (e.g. JWT) is wired up yet, and no `prd` profile activation path exists
+- `SecurityConfig` — the single (profile-independent) security config: stateless JWT resource server, CSRF off, no CORS (same-origin via the gateway). `JwtDecoder` uses the JWKS URI and validates `iss` explicitly — never set `issuer-uri`, since `keycloak.local` doesn't resolve from pods. Keycloak `realm_access.roles` map to `ROLE_<name>`. Actuator health/prometheus are public, other actuator endpoints need `admin`; unmatched paths are `permitAll` so unknown routes stay 404.
+- `UrlEntity.ownerId` — `owner_id VARCHAR(36)`, nullable, indexed; schema via `ddl-auto=update` (no Flyway yet)
 - `CacheConfig` — Caffeine cache named `urls`, max 10 000 entries, 1-hour TTL
 
 ## Testing
 
-Tests use H2 in-memory DB and disable Kafka autoconfiguration entirely (`application.properties` in `src/test/resources`). The `ClickEventProducer` is replaced with a no-op `@TestConfiguration` bean. No authentication simulation is needed — `DevSecurityConfig` permits all requests in the (always-active) `dev` profile.
+Tests use H2 in-memory DB and disable Kafka autoconfiguration entirely (`application.properties` in `src/test/resources`). The test `application.properties` shadows the main one, so the `dev` profile is not active in tests and resource-server/actuator properties are repeated there. The `ClickEventProducer` is replaced with a `@TestConfiguration` bean that records sent events. Authenticated calls use `spring-security-test`'s `jwt()` post-processor — no Keycloak needed.
 
 ## Observability
 

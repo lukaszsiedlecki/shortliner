@@ -21,7 +21,7 @@ ShortLiner is a modern URL shortening application optimized for high performance
 
 - Java 25
 - Spring Boot 3.5.10
-- Spring Security (CORS/CSRF handling; production authentication mechanism TBD)
+- Spring Security OAuth2 resource server (Keycloak JWTs relayed by `shortliner-gateway`)
 - Spring Data JPA
 - Spring Kafka
 - PostgreSQL
@@ -54,6 +54,8 @@ DB_NAME=shortliner
 DB_USERNAME=your_user
 DB_PASSWORD=your_password
 KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+KEYCLOAK_JWK_SET_URI=http://keycloak.local/realms/shortliner/protocol/openid-connect/certs
+KEYCLOAK_ISSUER_URI=http://keycloak.local/realms/shortliner
 ```
 
 3. Run the application:
@@ -67,16 +69,17 @@ The application will be available at `http://localhost:8080`
 
 ## API Endpoints
 
-| Endpoint               | Method | Auth | Description              |
-|------------------------|--------|------|--------------------------|
-| `/`                    | GET    | No   | Home page                |
-| `/shorten/{shortCode}` | GET    | No   | Redirect to original URL |
-| `/shorten`             | POST   | No*  | Create shortened URL     |
+| Endpoint               | Method | Auth                 | Description                                        |
+|------------------------|--------|----------------------|----------------------------------------------------|
+| `/`                    | GET    | No                   | Home page                                          |
+| `/shorten/{shortCode}` | GET    | No                   | Redirect to original URL                           |
+| `/shorten`             | POST   | Optional             | Create shortened URL; owned by the caller if a JWT is sent |
+| `/shorten`             | GET    | User                 | List the caller's own links                        |
+| `/shorten/{shortCode}` | DELETE | Owner or `admin`     | Delete a link (204); 404 if missing or not yours   |
 
-\* All endpoints are currently open — the active Spring profile is always
-`dev`, which permits every request. A `prd` profile exists with stricter
-authorization rules, but no authentication mechanism is wired up yet; it
-will be added before this goes to production.
+Auth is a Keycloak (realm `shortliner`) bearer JWT, normally added by `shortliner-gateway`.
+A request with an invalid or expired token gets 401 even on anonymous endpoints. Locally, run
+`shortliner-gateway` and log in through `http://localhost:8084` to get tokens relayed here.
 
 ### Example: Create Short URL
 

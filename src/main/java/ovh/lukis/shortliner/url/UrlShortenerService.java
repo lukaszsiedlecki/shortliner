@@ -5,6 +5,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.retry.annotation.Retryable;
@@ -28,7 +29,7 @@ public class UrlShortenerService {
 
     @Transactional
     @Retryable(value = DataIntegrityViolationException.class, maxAttempts = 3)
-    public UrlEntity shortenUrl(String originalUrl) {
+    public UrlEntity shortenUrl(String originalUrl, String ownerId) {
         logger.info("Received request to shorten URL: {}", originalUrl);
 
         // Validate the formatted URL
@@ -38,8 +39,9 @@ public class UrlShortenerService {
             throw new IllegalArgumentException("Nieprawidłowy adres URL");
         }
 
-        // Fetch all records with the same URL (to avoid NonUniqueResultException)
-        List<UrlEntity> existingUrls = urlRepository.findByUrl(originalUrl);
+        // Dedupe per owner, so a user's link list never contains someone else's link.
+        // Fetch all matches (to avoid NonUniqueResultException).
+        List<UrlEntity> existingUrls = urlRepository.findByUrlAndOwnerId(originalUrl, ownerId);
         if (!existingUrls.isEmpty()) {
             UrlEntity existingUrl = existingUrls.getFirst();
             logger.info("URL already exists. Returning existing short code: {}", existingUrl.getShortCode());
@@ -54,6 +56,7 @@ public class UrlShortenerService {
         UrlEntity url = new UrlEntity();
         url.setUrl(originalUrl);
         url.setShortCode(shortCode);
+        url.setOwnerId(ownerId);
         url.setCreatedAt(LocalDateTime.now());
         url.setUpdatedAt(LocalDateTime.now());
 
@@ -94,5 +97,26 @@ public class UrlShortenerService {
     public Optional<UrlEntity> getOriginalUrl(String shortCode) {
         logger.info("Fetching original URL for short code: {}", shortCode);
         return urlRepository.findByShortCode(shortCode);
+    }
+
+    public List<UrlEntity> getUrlsOwnedBy(String ownerId) {
+        return urlRepository.findByOwnerIdOrderByCreatedAtDesc(ownerId);
+    }
+
+    /**
+     * Deletes the link if the caller owns it or is an admin.
+     *
+     * @return {@code false} if the link doesn't exist or belongs to someone else — callers must not
+     * distinguish the two, so a foreign link's existence isn't revealed
+     */
+    @Transactional
+    @CacheEvict(value = "urls", key = "#shortCode")
+    public boolean deleteUrl(String shortCode, String callerId, boolean isAdmin) {
+        Optional<UrlEntity> url = urlRepository.findByShortCode(shortCode)
+                .filter(entity -> isAdmin || callerId.equals(entity.getOwnerId()));
+        url.ifPresent(urlRepository::delete);
+        logger.atInfo().addKeyValue("shortCode", shortCode).addKeyValue("userId", callerId)
+                .log(url.isPresent() ? "Short URL deleted" : "Short URL not deleted: not found or not owned");
+        return url.isPresent();
     }
 }
