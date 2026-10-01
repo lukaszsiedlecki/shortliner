@@ -61,6 +61,8 @@ KAFKA_BOOTSTRAP_SERVERS=localhost:9092
 ./gradlew bootRun
 ```
 
+Optionally add `SPRING_PROFILES_ACTIVE=dev,local` to `.env.local` to get Spring Security DEBUG logs and SQL output (`application-local.properties`).
+
 The application will be available at `http://localhost:8080`
 
 ## API Endpoints
