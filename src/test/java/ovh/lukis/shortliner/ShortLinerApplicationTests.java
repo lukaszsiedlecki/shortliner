@@ -16,7 +16,7 @@ class ShortLinerApplicationTests {
         @Bean
         @Primary
         public ClickEventProducer clickEventProducer() {
-            return new ClickEventProducer(null) {
+            return new ClickEventProducer(null, null) {
                 @Override
                 public void sendClickEvent(ClickEvent event) {
                     // No-op for tests

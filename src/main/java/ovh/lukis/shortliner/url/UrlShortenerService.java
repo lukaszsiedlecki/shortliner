@@ -34,7 +34,7 @@ public class UrlShortenerService {
         // Validate the formatted URL
         if (!isValidURL(originalUrl)) {
             logger.warn("Invalid URL provided: {}", originalUrl);
-            countShortenOutcome("invalid");
+            countLinkCreation("validation_error");
             throw new IllegalArgumentException("Nieprawidłowy adres URL");
         }
 
@@ -43,7 +43,7 @@ public class UrlShortenerService {
         if (!existingUrls.isEmpty()) {
             UrlEntity existingUrl = existingUrls.getFirst();
             logger.info("URL already exists. Returning existing short code: {}", existingUrl.getShortCode());
-            countShortenOutcome("duplicate");
+            countLinkCreation("duplicate");
             return existingUrl;
         }
 
@@ -61,18 +61,19 @@ public class UrlShortenerService {
         try {
             UrlEntity savedUrl = urlRepository.save(url);
             logger.info("New URL shortened successfully: {} -> {}", originalUrl, shortCode);
-            countShortenOutcome("created");
+            countLinkCreation("success");
             return savedUrl;
         } catch (DataIntegrityViolationException e) {
             logger.warn("Concurrent save attempt detected for URL: {}", originalUrl);
+            countLinkCreation("conflict");
             throw e;
         }
     }
 
-    private void countShortenOutcome(String outcome) {
-        Counter.builder("shortliner.url.shortened")
+    private void countLinkCreation(String result) {
+        Counter.builder("shortliner.links.created")
                 .description("Outcomes of URL shortening requests")
-                .tag("outcome", outcome)
+                .tag("result", result)
                 .register(meterRegistry)
                 .increment();
     }

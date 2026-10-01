@@ -38,7 +38,7 @@ DB_PASSWORD=your_password
 KAFKA_BOOTSTRAP_SERVERS=localhost:9092
 ```
 
-One Spring profile exists: `dev` (`application-dev.properties`), and it's always active — `application.properties` hardcodes `spring.profiles.active=dev`. Docker Compose integration is disabled via `application.properties`.
+`dev` (`application-dev.properties`) holds the real config and is always active — `application.properties` hardcodes `spring.profiles.active=dev`, and the cluster runs it too. Local-only noise (Spring Security DEBUG, `show-sql`) lives in the `local` profile: run with `SPRING_PROFILES_ACTIVE=dev,local`. Docker Compose integration is disabled via `application.properties`.
 
 ## Architecture
 
@@ -61,6 +61,6 @@ Tests use H2 in-memory DB and disable Kafka autoconfiguration entirely (`applica
 
 ## Observability
 
-- **Metrics**: Micrometer + `micrometer-registry-prometheus`, scraped at `/actuator/prometheus` (always on; `management.endpoints.web.exposure.include=health,prometheus,metrics`). Includes HTTP latency histograms (`http_server_requests`) and business counters `shortliner_url_shortened_total{outcome=created|duplicate|invalid}` and `shortliner_url_redirect_total{outcome=found|not_found}`, incremented via injected `MeterRegistry` in `UrlShortenerService`/`UrlShortenerController`.
+- **Metrics**: Micrometer + `micrometer-registry-prometheus`, scraped at `/actuator/prometheus` (always on; `management.endpoints.web.exposure.include=health,prometheus,metrics`). Includes HTTP latency histograms (`http_server_requests`) and business counters `shortliner_links_created_total{result=success|duplicate|validation_error|conflict}`, `shortliner_redirects_total{result=hit|not_found}` and `shortliner_click_events_published_total{result=success|failure}`, incremented via injected `MeterRegistry` in `UrlShortenerService`/`UrlShortenerController`/`ClickEventProducer`. Never tag with short codes or URLs. Cache hit ratio comes from `cache_gets_total{cache="urls"}`; Kafka from `spring_kafka_template_*` and `kafka_producer_*` (both appear only after the first send). `spring.application.name=shortliner` drives the `application` metric tag, the ECS `service.name`, and the OTel service name.
 - **Tracing**: Micrometer Tracing with the OTel bridge + OTLP exporter, plus Kafka producer trace-context propagation (`spring.kafka.template.observation-enabled=true`). Export is **disabled by default** — set `OTEL_TRACING_EXPORT_ENABLED=true` and `OTEL_EXPORTER_OTLP_ENDPOINT` once a collector (e.g. Tempo/Jaeger) is available.
 - **Logging**: trace/span IDs are added to the MDC automatically once tracing is on the classpath, regardless of export status. Structured JSON console logs are opt-in via `LOGGING_STRUCTURED_FORMAT_CONSOLE` (e.g. `logstash`, `ecs`) — unset locally for readable output, set to `logstash` in the k8s Deployment.

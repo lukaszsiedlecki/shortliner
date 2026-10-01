@@ -61,19 +61,19 @@ class UrlShortenerController {
             clickEventProducer.sendClickEvent(event);
 
             logger.info("Short code found: {} -> {}", shortCode, originalUrl);
-            countRedirectOutcome("found");
+            countRedirect("hit");
             return new RedirectView(originalUrl);
         } else {
             logger.warn("Short code not found: {}", shortCode);
-            countRedirectOutcome("not_found");
+            countRedirect("not_found");
             return new RedirectView("/error");
         }
     }
 
-    private void countRedirectOutcome(String outcome) {
-        Counter.builder("shortliner.url.redirect")
+    private void countRedirect(String result) {
+        Counter.builder("shortliner.redirects")
                 .description("Outcomes of short code redirect lookups")
-                .tag("outcome", outcome)
+                .tag("result", result)
                 .register(meterRegistry)
                 .increment();
     }
