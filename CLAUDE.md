@@ -58,12 +58,13 @@ Key classes:
 - `UrlShortenerController` — REST layer
 - `ClickEventProducer` / `ClickEvent` — fire-and-forget Kafka producer for analytics
 - `SecurityConfig` — the single (profile-independent) security config: stateless JWT resource server, CSRF off, no CORS (same-origin via the gateway). `JwtDecoder` uses the JWKS URI and validates `iss` explicitly — never set `issuer-uri`, since `keycloak.local` doesn't resolve from pods. Keycloak `realm_access.roles` map to `ROLE_<name>`. Actuator health/prometheus are public, other actuator endpoints need `admin`; unmatched paths are `permitAll` so unknown routes stay 404.
-- `UrlEntity.ownerId` — `owner_id VARCHAR(36)`, nullable, indexed; schema via `ddl-auto=update` (no Flyway yet)
+- `UrlEntity.ownerId` — `owner_id VARCHAR(36)`, nullable, indexed
+- Schema is owned by **Flyway** (`src/main/resources/db/migration`, `V<n>__*.sql`); Hibernate runs with `ddl-auto=validate`, so every entity change needs a new migration. `V1` reproduces the schema Hibernate generated before Flyway; pre-Flyway databases are baselined at version 1 (`spring.flyway.baseline-on-migrate=true`) and only receive `V2+`. Never edit an applied migration.
 - `CacheConfig` — Caffeine cache named `urls`, max 10 000 entries, 1-hour TTL
 
 ## Testing
 
-Tests use H2 in-memory DB and disable Kafka autoconfiguration entirely (`application.properties` in `src/test/resources`). The test `application.properties` shadows the main one, so the `dev` profile is not active in tests and resource-server/actuator properties are repeated there. The `ClickEventProducer` is replaced with a `@TestConfiguration` bean that records sent events. Authenticated calls use `spring-security-test`'s `jwt()` post-processor — no Keycloak needed.
+Tests use H2 in-memory DB with the schema built by the Flyway migrations (`ddl-auto=validate`, so a migration/entity mismatch fails the build) and disable Kafka autoconfiguration entirely (`application.properties` in `src/test/resources`). The test `application.properties` shadows the main one, so the `dev` profile is not active in tests and resource-server/actuator properties are repeated there. The `ClickEventProducer` is replaced with a `@TestConfiguration` bean that records sent events. Authenticated calls use `spring-security-test`'s `jwt()` post-processor — no Keycloak needed.
 
 ## Observability
 
