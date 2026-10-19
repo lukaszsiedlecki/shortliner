@@ -2,6 +2,7 @@ package ovh.lukis.shortliner.url;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import org.junit.jupiter.api.Test;
+import org.mockito.stubbing.Answer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -11,6 +12,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import ovh.lukis.shortliner.kafka.ClickEvent;
 import ovh.lukis.shortliner.kafka.ClickEventProducer;
@@ -20,6 +22,12 @@ import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mockingDetails;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -54,7 +62,7 @@ class UrlShortenerApplicationTests {
     @Autowired
     private MeterRegistry meterRegistry;
 
-    @Autowired
+    @MockitoSpyBean
     private UrlRepository urlRepository;
 
     @Test
@@ -111,6 +119,36 @@ class UrlShortenerApplicationTests {
 
         assertThat(count("shortliner.redirects", "hit")).isEqualTo(hitBefore + 1);
         assertThat(count("shortliner.redirects", "not_found")).isEqualTo(notFoundBefore + 1);
+    }
+
+    @Test
+    void shortCodeCollisionIsRetriedWithNewCodeAndNoBackoff() throws Exception {
+        String takenCode = shorten("https://www.example.com/collision-taken", null);
+        String url = "https://www.example.com/collision-retried";
+        double conflictBefore = count("shortliner.links.created", "conflict");
+        double successBefore = count("shortliner.links.created", "success");
+        clearInvocations(urlRepository);
+        // The repository is a JDK proxy, so callRealMethod() can't reach it; the spy's default answer
+        // delegates to the real bean. Force the first attempt onto a taken code so the real unique
+        // constraint fires.
+        Answer<?> realRepository = mockingDetails(urlRepository).getMockCreationSettings().getDefaultAnswer();
+        doAnswer(invocation -> {
+            invocation.<UrlEntity>getArgument(0).setShortCode(takenCode);
+            return realRepository.answer(invocation);
+        }).doAnswer(realRepository).when(urlRepository).save(any());
+
+        long start = System.nanoTime();
+        String shortCode = shorten(url, null);
+        long elapsedMillis = (System.nanoTime() - start) / 1_000_000;
+
+        assertThat(shortCode).isNotEqualTo(takenCode);
+        verify(urlRepository, times(2)).save(any());
+        assertThat(urlRepository.findByUrlAndOwnerId(url, null)).singleElement()
+                .extracting(UrlEntity::getShortCode).isEqualTo(shortCode);
+        assertThat(count("shortliner.links.created", "conflict")).isEqualTo(conflictBefore + 1);
+        assertThat(count("shortliner.links.created", "success")).isEqualTo(successBefore + 1);
+        // The default @Retryable backoff is 1 s; a collision must be retried immediately.
+        assertThat(elapsedMillis).isLessThan(500);
     }
 
     private double count(String name, String result) {
