@@ -92,7 +92,7 @@ curl -X POST http://localhost:8080/shorten \
 ## Observability
 
 - **Metrics**: Prometheus-formatted metrics at `/actuator/prometheus`, including HTTP latency histograms and business counters for shorten/redirect outcomes.
-- **Tracing**: OpenTelemetry tracing (with Kafka trace-context propagation) is wired in but export is off by default — set `OTEL_TRACING_EXPORT_ENABLED=true` and `OTEL_EXPORTER_OTLP_ENDPOINT` to send traces to a collector.
+- **Tracing**: OpenTelemetry tracing (with Kafka trace-context propagation) is wired in but export is off by default — set `OTEL_TRACES_EXPORTER=otlp` and `OTEL_EXPORTER_OTLP_ENDPOINT` (the collector's base URL, e.g. `http://tempo:4318`) to send traces to a collector.
 - **Logging**: set `LOGGING_STRUCTURED_FORMAT_CONSOLE=logstash` (or `ecs`) for structured JSON logs with automatic trace/span correlation; unset for plain console output.
 
 ```bash
