@@ -75,8 +75,9 @@ spec:
               value: "my-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
             - name: LOGGING_STRUCTURED_FORMAT_CONSOLE
               value: "logstash"
-              # Set OTEL_TRACING_EXPORT_ENABLED=true and point OTEL_EXPORTER_OTLP_ENDPOINT
-              # at a collector (e.g. Tempo/Jaeger OTLP HTTP receiver) once one is deployed.
+              # To export traces once a collector (e.g. Tempo/Jaeger OTLP HTTP receiver) is deployed,
+              # set OTEL_TRACES_EXPORTER=otlp and OTEL_EXPORTER_OTLP_ENDPOINT to its base URL
+              # (e.g. http://tempo:4318 — Boot appends /v1/traces).
           resources:
             requests:
               cpu: 200m
