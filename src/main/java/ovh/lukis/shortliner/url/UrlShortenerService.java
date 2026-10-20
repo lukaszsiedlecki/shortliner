@@ -8,8 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.retry.annotation.Backoff;
-import org.springframework.retry.annotation.Retryable;
+import org.springframework.resilience.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,8 +29,9 @@ public class UrlShortenerService {
 
     @Transactional
     // The only unique key is short_code, so a violation means a random-code collision: retry right away
-    // with a fresh code. @Backoff(0), not delay = 0 — a zero delay falls back to the 1 s default value.
-    @Retryable(retryFor = DataIntegrityViolationException.class, maxAttempts = 3, backoff = @Backoff(0))
+    // with a fresh code (3 attempts in total; the default delay would be 1 s). The retry advisor wraps
+    // the transactional one, so every attempt runs in its own transaction.
+    @Retryable(includes = DataIntegrityViolationException.class, maxRetries = 2, delay = 0)
     public UrlEntity shortenUrl(String originalUrl, String ownerId) {
         logger.info("Received request to shorten URL: {}", originalUrl);
 

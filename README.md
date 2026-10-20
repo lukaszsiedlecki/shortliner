@@ -1,7 +1,7 @@
 # ShortLiner - URL Shortener
 
 ![Java](https://img.shields.io/badge/Java-25-orange)
-![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5-brightgreen)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
 ShortLiner is a modern URL shortening application optimized for high performance and reliability.
@@ -20,7 +20,7 @@ ShortLiner is a modern URL shortening application optimized for high performance
 ## Technologies
 
 - Java 25
-- Spring Boot 3.5.10
+- Spring Boot 4.1.1 (Spring Framework 7)
 - Spring Security OAuth2 resource server (Keycloak JWTs relayed by `shortliner-gateway`)
 - Spring Data JPA
 - Spring Kafka
@@ -33,7 +33,7 @@ ShortLiner is a modern URL shortening application optimized for high performance
 ## Requirements
 
 - Java 25 or newer
-- Gradle 9.1+
+- Gradle 9.8+ (wrapper included)
 - PostgreSQL
 - Kafka (for click event tracking)
 

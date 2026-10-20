@@ -1,13 +1,13 @@
 package ovh.lukis.shortliner.kafka;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.json.JsonMapper;
 
 @Service
 public class ClickEventProducer {
@@ -16,17 +16,18 @@ public class ClickEventProducer {
 
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final MeterRegistry meterRegistry;
-    private final ObjectMapper objectMapper;
+    private final JsonMapper jsonMapper;
 
-    public ClickEventProducer(KafkaTemplate<String, String> kafkaTemplate, MeterRegistry meterRegistry) {
+    public ClickEventProducer(KafkaTemplate<String, String> kafkaTemplate, MeterRegistry meterRegistry,
+                              JsonMapper jsonMapper) {
         this.kafkaTemplate = kafkaTemplate;
         this.meterRegistry = meterRegistry;
-        this.objectMapper = new ObjectMapper();
+        this.jsonMapper = jsonMapper;
     }
 
     public void sendClickEvent(ClickEvent event) {
         try {
-            String json = objectMapper.writeValueAsString(event);
+            String json = jsonMapper.writeValueAsString(event);
             kafkaTemplate.send(TOPIC, event.shortCode(), json)
                     .whenComplete((result, ex) -> {
                         if (ex != null) {
@@ -38,7 +39,7 @@ public class ClickEventProducer {
                             countPublish("success");
                         }
                     });
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             logger.error("Failed to serialize click event: {}", e.getMessage());
             countPublish("failure");
         } catch (RuntimeException e) {
