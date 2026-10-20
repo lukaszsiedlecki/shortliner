@@ -4,6 +4,7 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.apache.kafka.common.errors.TimeoutException;
 import org.junit.jupiter.api.Test;
 import org.springframework.kafka.core.KafkaTemplate;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -19,7 +20,7 @@ class ClickEventProducerTest {
     @SuppressWarnings("unchecked")
     private final KafkaTemplate<String, String> kafkaTemplate = mock(KafkaTemplate.class);
     private final SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
-    private final ClickEventProducer producer = new ClickEventProducer(kafkaTemplate, meterRegistry);
+    private final ClickEventProducer producer = new ClickEventProducer(kafkaTemplate, meterRegistry, new JsonMapper());
 
     @Test
     void countsSuccessfulPublish() {
