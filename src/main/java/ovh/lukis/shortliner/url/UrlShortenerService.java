@@ -77,7 +77,7 @@ public class UrlShortenerService {
     }
 
     private void countLinkCreation(String result) {
-        Counter.builder("shortliner.links.created")
+        Counter.builder("shortliner.links")
                 .description("Outcomes of URL shortening requests")
                 .tag("result", result)
                 .register(meterRegistry)
