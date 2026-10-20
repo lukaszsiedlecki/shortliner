@@ -88,9 +88,9 @@ class UrlShortenerApplicationTests {
 
     @Test
     void countsLinkCreationOutcomes() throws Exception {
-        double successBefore = count("shortliner.links.created", "success");
-        double duplicateBefore = count("shortliner.links.created", "duplicate");
-        double invalidBefore = count("shortliner.links.created", "validation_error");
+        double successBefore = count("shortliner.links", "success");
+        double duplicateBefore = count("shortliner.links", "duplicate");
+        double invalidBefore = count("shortliner.links", "validation_error");
         String body = "{\"url\": \"https://www.example.com/metrics-test\"}";
 
         mockMvc.perform(post("/shorten").contentType(MediaType.APPLICATION_JSON).content(body))
@@ -100,9 +100,22 @@ class UrlShortenerApplicationTests {
         mockMvc.perform(post("/shorten").contentType(MediaType.APPLICATION_JSON).content("{\"url\": \"not a url\"}"))
                 .andExpect(status().isBadRequest());
 
-        assertThat(count("shortliner.links.created", "success")).isEqualTo(successBefore + 1);
-        assertThat(count("shortliner.links.created", "duplicate")).isEqualTo(duplicateBefore + 1);
-        assertThat(count("shortliner.links.created", "validation_error")).isEqualTo(invalidBefore + 1);
+        assertThat(count("shortliner.links", "success")).isEqualTo(successBefore + 1);
+        assertThat(count("shortliner.links", "duplicate")).isEqualTo(duplicateBefore + 1);
+        assertThat(count("shortliner.links", "validation_error")).isEqualTo(invalidBefore + 1);
+    }
+
+    @Test
+    void businessCountersKeepTheirPrometheusNames() throws Exception {
+        String shortCode = shorten("https://www.example.com/prometheus-names", null);
+        mockMvc.perform(get("/shorten/" + shortCode)).andExpect(status().is3xxRedirection());
+
+        // Dashboards query these names; the Prometheus client rewrites some meter names
+        // (e.g. strips a trailing ".created"), so check the scraped output, not the meter.
+        String scrape = mockMvc.perform(get("/actuator/prometheus"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertThat(scrape).contains("shortliner_links_total{", "shortliner_redirects_total{");
     }
 
     @Test
@@ -125,8 +138,8 @@ class UrlShortenerApplicationTests {
     void shortCodeCollisionIsRetriedWithNewCodeAndNoBackoff() throws Exception {
         String takenCode = shorten("https://www.example.com/collision-taken", null);
         String url = "https://www.example.com/collision-retried";
-        double conflictBefore = count("shortliner.links.created", "conflict");
-        double successBefore = count("shortliner.links.created", "success");
+        double conflictBefore = count("shortliner.links", "conflict");
+        double successBefore = count("shortliner.links", "success");
         clearInvocations(urlRepository);
         // The repository is a JDK proxy, so callRealMethod() can't reach it; the spy's default answer
         // delegates to the real bean. Force the first attempt onto a taken code so the real unique
@@ -145,8 +158,8 @@ class UrlShortenerApplicationTests {
         verify(urlRepository, times(2)).save(any());
         assertThat(urlRepository.findByUrlAndOwnerId(url, null)).singleElement()
                 .extracting(UrlEntity::getShortCode).isEqualTo(shortCode);
-        assertThat(count("shortliner.links.created", "conflict")).isEqualTo(conflictBefore + 1);
-        assertThat(count("shortliner.links.created", "success")).isEqualTo(successBefore + 1);
+        assertThat(count("shortliner.links", "conflict")).isEqualTo(conflictBefore + 1);
+        assertThat(count("shortliner.links", "success")).isEqualTo(successBefore + 1);
         // The default @Retryable backoff is 1 s; a collision must be retried immediately.
         assertThat(elapsedMillis).isLessThan(500);
     }
