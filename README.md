@@ -6,6 +6,36 @@
 
 ShortLiner is a modern URL shortening application optimized for high performance and reliability.
 
+## Architecture
+
+```mermaid
+flowchart LR
+    user([Browser])
+    gateway["shortliner-gateway<br/>(BFF, OAuth2 login)"]
+    keycloak[("Keycloak<br/>realm: shortliner")]
+    shortliner["<b>shortliner</b><br/>(this service)<br/>Caffeine cache"]
+    postgres[("PostgreSQL<br/>links")]
+    kafka{{"Kafka<br/>topic: shortliner.clicks"}}
+    analytics["shortliner-analytics"]
+    analyticsDb[("PostgreSQL<br/>click stats")]
+
+    user -->|HTTPS| gateway
+    gateway <-->|login, tokens| keycloak
+    gateway -->|"/api/shortliner/**<br/>+ Bearer JWT"| shortliner
+    gateway -->|"/api/analytics/**"| analytics
+    shortliner -.->|JWKS: verify JWT| keycloak
+    shortliner -->|JPA + Flyway| postgres
+    shortliner -->|"click event (async)"| kafka
+    kafka -->|consume| analytics
+    analytics --> analyticsDb
+
+    style shortliner stroke-width:3px
+```
+
+- The browser talks only to **shortliner-gateway**. It logs the user in through Keycloak and forwards API calls with a Keycloak JWT.
+- **shortliner** is an OAuth2 resource server: it checks the JWT against Keycloak's public keys (JWKS) and uses the token's `sub` as the link owner. Anonymous users can create links too.
+- Every redirect sends a fire-and-forget click event to Kafka, so the redirect never waits for analytics. **shortliner-analytics** consumes the events and stores the click statistics.
+
 ## Features
 
 - Shortening long URLs into concise, memorable codes
